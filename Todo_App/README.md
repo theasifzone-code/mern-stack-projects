@@ -1,4 +1,4 @@
-# Simple To-Do App
+# To-Do App
 
 This is a complete **full-stack** To-Do application built using React and Node.js. The app allows users to add new tasks, mark them as complete, and delete them.
 

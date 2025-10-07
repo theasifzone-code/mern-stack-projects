@@ -1,82 +1,52 @@
-import express from "express"
-import mongoose from "mongoose"
-import cors from "cors"
-import dotenv from "dotenv"
+import express from "express";
+import connectDB from "./config/db.js";
+import dotenv from "dotenv";
+import cors from "cors";
+import userRoutes from "./routes/userRoutes.js";
+import taskRoutes from "./routes/taskRoutes.js";
+import apiKeyRoutes from "./routes/apiKeyRoutes.js";
+
+// --- Custom Error Handling Imports ---
+import { notFound, errorHandler } from "./middleware/error.js";
+
+// Load .env file
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT;
 
-// Middleware
-app.use(express.json());
-app.use(cors());
+// --- Core Middlewares ---
+app.use(express.json()); // Body parser for JSON data
+app.use(cors()); // Enable CORS for all origins
 
-// Database connection
-const url = process.env.MONGO_URI;
-mongoose.connect(url)
-    .then(() => {
-        console.log("database connected succesfully")
-    })
-    .catch((err) => {
-        console.error(`connection error: ${err}`)
-    })
+// Simple test route
+app.get("/", (req, res) => {
+  res.send("Hello, Todo backend API is running...");
+});
 
-// Task Schema
-const taskSchema = new mongoose.Schema({
-    title: String,
-    completed: {
-        type: Boolean,
-        default: false
-    }
-})
+// --- Routes ---
+app.use("/api/users", userRoutes);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/apikeys", apiKeyRoutes);
 
-// Task Model
-const Task = mongoose.model("Task", taskSchema,"todo-app");
+// --- Error Handling Middlewares ---
+app.use(notFound);     // 404 Not Found
+app.use(errorHandler); // Global Error Handler
 
-// Api EndPoints
+// --- Start Server with DB Connection ---
+const startServer = async () => {
+  try {
+    await connectDB();
 
-// new task added
-app.post("/tasks", async (req, res) => {
-    try {
-        const newTask = new Task(req.body);
-        await newTask.save();
-        return res.json(newTask);
-    } catch (error) {
-        return res.json({ message: error.message });
-    }
-})
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => {
+      console.log(
+        `Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`
+      );
+    });
+  } catch (error) {
+    console.error("Database connection failed:", error.message);
+    process.exit(1); // Exit process if DB connection fails
+  }
+};
 
-// get all tasks
-app.get("/tasks", async (req, res) => {
-    try {
-        const task = await Task.find();
-        return res.json(task);
-    } catch (error) {
-        return res.json({ message: error.message });
-    }
-})
-// update task
-app.put("/tasks/:id", async (req, res) => {
-    try {
-        const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true })
-        if (!updatedTask) return res.status(404).json({ message: "Task not found." });
-        return res.json(updatedTask);
-    } catch (error) {
-        return res.json({ message: error.message });
-    }
-})
-
-// delete task
-app.delete("/tasks/:id", async (req, res) => {
-    try {
-        const deletedTask = await Task.findByIdAndDelete(req.params.id);
-        if (!deletedTask) return res.status(404).json({ message: "Task not found." });
-        return res.json({ message: "Task deleted successfully." });
-    } catch (error) {
-        return res.json({ message: error.message })
-    }
-})
-
-app.listen(PORT,()=>{
-    console.log(`Server running at http://localhost:${PORT}`);
-})
+startServer();
